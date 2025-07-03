@@ -51,10 +51,16 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
 
   const handleFiles = (files: FileList) => {
     const validFiles = Array.from(files).filter(file => {
-      if (file.type !== 'application/pdf') {
+      const allowedTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/msword' // .doc
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
         toast({
           title: "Invalid file type",
-          description: "Only PDF files are allowed.",
+          description: "Only PDF and Word documents are allowed.",
           variant: "destructive",
         });
         return false;
@@ -119,7 +125,7 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload CV Documents</h3>
-        <p className="text-gray-600">Upload PDF files to extract and analyze resume information automatically.</p>
+        <p className="text-gray-600">Upload PDF or Word documents to extract and analyze resume information automatically.</p>
       </div>
       
       <div
@@ -144,7 +150,7 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
             </p>
           </div>
           <div className="text-sm text-gray-400">
-            <p>Supports: PDF files up to 10MB</p>
+            <p>Supports: PDF and Word documents (.pdf, .docx, .doc) up to 10MB</p>
             <p>Multiple files can be uploaded simultaneously</p>
           </div>
         </div>
@@ -153,7 +159,7 @@ export default function FileUpload({ onUploadSuccess }: FileUploadProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,.docx,.doc"
         onChange={(e) => e.target.files && handleFiles(e.target.files)}
         className="hidden"
       />

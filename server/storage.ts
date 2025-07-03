@@ -99,14 +99,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateExtractedInfo(cvFileId: number, data: Partial<InsertExtractedInfo>): Promise<ExtractedInfo | undefined> {
-    const updateData: any = { ...data };
-    if (!updateData.updatedAt) {
-      updateData.updatedAt = new Date();
-    }
-    
     const [info] = await db
       .update(extractedInfo)
-      .set(updateData)
+      .set(data as any)
       .where(eq(extractedInfo.cvFileId, cvFileId))
       .returning();
     return info || undefined;

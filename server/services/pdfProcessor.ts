@@ -1,4 +1,5 @@
 import fs from 'fs';
+import mammoth from 'mammoth';
 import { storage } from '../storage';
 
 // Extract text from PDF using dynamic import to avoid module loading issues
@@ -14,6 +15,29 @@ async function extractTextFromPDF(filePath: string): Promise<string> {
     console.error("PDF extraction error:", error);
     // Return a simulated extraction for now
     return "Sample CV text content extracted from PDF. This would contain actual CV text in a real implementation.";
+  }
+}
+
+// Extract text from Word document using mammoth
+async function extractTextFromWord(filePath: string): Promise<string> {
+  try {
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value;
+  } catch (error) {
+    console.error("Word extraction error:", error);
+    throw new Error("Failed to extract text from Word document");
+  }
+}
+
+// Extract text from document based on file type
+async function extractTextFromDocument(filePath: string, mimeType: string): Promise<string> {
+  if (mimeType === 'application/pdf') {
+    return extractTextFromPDF(filePath);
+  } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+             mimeType === 'application/msword') {
+    return extractTextFromWord(filePath);
+  } else {
+    throw new Error("Unsupported file type");
   }
 }
 
@@ -54,13 +78,13 @@ function extractStructuredInfo(text: string) {
   };
 }
 
-export async function processPDF(filePath: string, cvFileId: number) {
+export async function processDocument(filePath: string, cvFileId: number, mimeType: string) {
   try {
     // Update status to processing
     await storage.updateCvFileStatus(cvFileId, 'processing');
     
-    // Extract text from PDF
-    const extractedText = await extractTextFromPDF(filePath);
+    // Extract text from document
+    const extractedText = await extractTextFromDocument(filePath, mimeType);
     
     // Extract structured information
     const structuredInfo = extractStructuredInfo(extractedText);
@@ -78,7 +102,7 @@ export async function processPDF(filePath: string, cvFileId: number) {
     fs.unlinkSync(filePath);
     
   } catch (error) {
-    console.error("PDF processing error:", error);
+    console.error("Document processing error:", error);
     
     // Update status to failed
     await storage.updateCvFileStatus(cvFileId, 'failed');

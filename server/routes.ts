@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import path from "path";
 import { insertCvFileSchema, insertExtractedInfoSchema, updateExtractedInfoSchema } from "@shared/schema";
-import { processPDF } from "./services/pdfProcessor";
+import { processDocument } from "./services/pdfProcessor";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -13,10 +13,16 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/msword' // .doc
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'));
+      cb(new Error('Only PDF and Word documents are allowed'));
     }
   },
 });
@@ -39,8 +45,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertCvFileSchema.parse(cvFileData);
       const cvFile = await storage.createCvFile(validatedData);
 
-      // Start processing the PDF asynchronously
-      processPDF(req.file.path, cvFile.id).catch(console.error);
+      // Start processing the document asynchronously
+      processDocument(req.file.path, cvFile.id, req.file.mimetype).catch(console.error);
 
       res.json(cvFile);
     } catch (error) {

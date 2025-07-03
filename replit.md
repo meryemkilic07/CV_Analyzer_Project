@@ -39,13 +39,13 @@ This is a full-stack CV/Resume analysis web application built to automatically e
   - Education background
 
 ### File Upload System
-- **File Types**: PDF only with 10MB size limit
+- **File Types**: PDF and Word documents (.pdf, .docx, .doc) with 10MB size limit
 - **Storage**: Local filesystem in uploads/ directory
-- **Processing**: Asynchronous PDF text extraction and data parsing
+- **Processing**: Asynchronous document text extraction and data parsing
 - **Status Tracking**: Pending → Processing → Completed/Failed states
 
 ### Data Extraction Pipeline
-- **Text Extraction**: Basic PDF text extraction (expandable to OCR/NLP)
+- **Text Extraction**: PDF and Word document text extraction using pdf-parse and mammoth libraries
 - **Pattern Recognition**: Regex-based extraction for emails, phones, names
 - **Skill Detection**: Keyword matching for technical skills
 - **Structured Output**: JSON format stored in PostgreSQL JSONB fields
@@ -110,5 +110,6 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
-Changelog:
-- July 03, 2025. Initial setup
+- July 03, 2025: Initial setup with PDF support
+- July 03, 2025: Added Word document support (.docx, .doc) using mammoth library
+- July 03, 2025: Updated file upload to accept both PDF and Word documents
