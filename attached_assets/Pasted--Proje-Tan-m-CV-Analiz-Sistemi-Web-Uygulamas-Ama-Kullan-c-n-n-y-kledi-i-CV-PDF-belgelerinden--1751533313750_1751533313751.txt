@@ -1,0 +1,43 @@
+✅ Proje Tanımı: CV Analiz Sistemi Web Uygulaması
+Amaç: Kullanıcının yüklediği CV/PDF belgelerinden otomatik olarak bilgi çıkarımı yapan, bu bilgileri veritabanına kaydeden ve kullanıcıya görsel arayüz ile gösteren tam yığın bir web uygulaması oluştur.
+🔧 Teknoloji Tercihleri:
+Backend:
+* FastAPI ile Python tabanlı API oluştur.
+* Alternatif olarak Node.js (Express) ile karşılaştırmalı olarak gerekli olan yerleri seç.
+* API’ler Swagger/OpenAPI desteği ile belgelenmiş olsun.
+* Dosya yükleme, CV içeriğini OCR ya da NLP ile analiz etme ve yapılandırılmış veri olarak çıkarma modülleri yazılsın.
+Frontend:
+* React.js + JavaScript (ya da TypeScript) kullanılarak kullanıcı arayüzü oluşturulsun.
+* Dosya yükleme komponenti olsun (drag-drop ve klasik file upload).
+* Kullanıcıdan alınan belge sonucunda analiz edilen bilgiler (ad, iletişim, eğitim, tecrübe vs.) gösterilsin ve kullanıcı bu alanları düzenleyebilsin.
+Veritabanı:
+* SQL tabanlı bir veritabanı (örneğin PostgreSQL) kullan.
+* ORM olarak FastAPI ile uyumlu SQLAlchemy ya da Entity Framework Core gibi modern ve sürdürülebilir bir yapı tercih et (güncel trendlere göre uygun olanı sen seç).
+* Veritabanı tabloları: Users, CVFiles, ExtractedInfo gibi temel yapılar yer alsın.
+☁️ Dağıtım Ortamı:
+* Proje Claude gibi cloud tabanlı bir platformda host edilecek şekilde yapılandırılsın (örneğin Amazon S3, Azure Blob için dosya depolama).
+📦 Proje Yapısı:
+
+cv-analyzer/
+├── backend/
+│   ├── main.py
+│   ├── routers/
+│   ├── models/
+│   └── services/
+├── frontend/
+│   └── src/
+│       ├── App.js
+│       ├── components/
+│       └── pages/
+├── database/
+│   ├── schema.sql / orm_models.py
+│   └── connection.py
+├── README.md
+└── requirements.txt / package.json
+🧠 Yapay Zeka / NLP Entegrasyonu:
+* CV analizinde spaCy, PyMuPDF, veya pdfminer.six kullanılarak metin çıkarımı ve ad, eğitim, tecrübe gibi anahtar bilgi alanları tespit edilsin.
+* JSON çıktı üret ve bunları veritabanına kaydet.
+📤 Teslimat:
+* Tüm proje dosyalarını backend ve frontend dahil olacak şekilde zip formatında organize et.
+* README.md içinde nasıl çalıştırılacağı açıkça anlatılsın.
+* Gerekirse Docker desteği ekleyerek kolay dağıtım seçeneği sun.
