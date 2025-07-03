@@ -1,51 +1,47 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
-import { User, Bus, Briefcase, GraduationCap, Plus, X, Save, Database, Download, CheckCircle } from "lucide-react";
+import { User, Briefcase, GraduationCap, Plus, X, Save, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { ExtractedInfo } from "@shared/schema";
+import type { ExtractedInfo, CvFile } from "@shared/schema";
 
 interface CVAnalysisFormProps {
   cvId: number;
 }
 
-const formSchema = z.object({
-  fullName: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  location: z.string().optional(),
-  summary: z.string().optional(),
-  skills: z.array(z.string()).default([]),
-  experience: z.array(z.object({
-    title: z.string(),
-    company: z.string(),
-    startDate: z.string(),
-    endDate: z.string(),
-    description: z.string(),
-  })).default([]),
-  education: z.array(z.object({
-    degree: z.string(),
-    institution: z.string(),
-    graduationYear: z.number(),
-    gpa: z.string().optional(),
-  })).default([]),
-});
+interface FormData {
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  summary: string;
+  skills: string[];
+  experience: {
+    title: string;
+    company: string;
+    startDate: string;
+    endDate: string;
+    description: string;
+  }[];
+  education: {
+    degree: string;
+    institution: string;
+    graduationYear: number;
+    gpa?: string;
+  }[];
+}
 
 export default function CVAnalysisForm({ cvId }: CVAnalysisFormProps) {
   const [newSkill, setNewSkill] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: extractedInfo, isLoading } = useQuery({
+  const { data: extractedInfo, isLoading } = useQuery<ExtractedInfo>({
     queryKey: [`/api/cv/${cvId}/extracted`],
     enabled: !!cvId,
   });
@@ -53,478 +49,404 @@ export default function CVAnalysisForm({ cvId }: CVAnalysisFormProps) {
   const { data: cvFile } = useQuery({
     queryKey: [`/api/cv/${cvId}`],
     enabled: !!cvId,
+  }) as { data: CvFile | undefined };
+
+  const [formData, setFormData] = useState<FormData>({
+    fullName: "",
+    email: "",
+    phone: "",
+    location: "",
+    summary: "",
+    skills: [],
+    experience: [],
+    education: [],
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: extractedInfo || {
-      fullName: "",
-      email: "",
-      phone: "",
-      location: "",
-      summary: "",
-      skills: [],
-      experience: [],
-      education: [],
-    },
-  });
-
-  // Update form when data loads
-  React.useEffect(() => {
+  useEffect(() => {
     if (extractedInfo) {
-      form.reset(extractedInfo);
+      setFormData({
+        fullName: extractedInfo.fullName || "",
+        email: extractedInfo.email || "",
+        phone: extractedInfo.phone || "",
+        location: extractedInfo.location || "",
+        summary: extractedInfo.summary || "",
+        skills: extractedInfo.skills || [],
+        experience: extractedInfo.experience || [],
+        education: extractedInfo.education || [],
+      });
     }
-  }, [extractedInfo, form]);
+  }, [extractedInfo]);
 
   const updateMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const response = await apiRequest('PATCH', `/api/cv/${cvId}/extracted`, data);
+    mutationFn: async (data: FormData) => {
+      const response = await apiRequest('PUT', `/api/cv/${cvId}/extracted`, data);
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Changes saved",
-        description: "CV information has been updated successfully.",
+        title: "Information updated",
+        description: "CV information has been successfully updated.",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/cv/${cvId}/extracted`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/cv'] });
     },
     onError: () => {
       toast({
-        title: "Save failed",
-        description: "Failed to save changes. Please try again.",
+        title: "Update failed",
+        description: "Failed to update CV information. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    updateMutation.mutate(data);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate(formData);
   };
 
   const addSkill = () => {
     if (newSkill.trim()) {
-      const currentSkills = form.getValues("skills");
-      form.setValue("skills", [...currentSkills, newSkill.trim()]);
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, newSkill.trim()]
+      }));
       setNewSkill("");
     }
   };
 
   const removeSkill = (index: number) => {
-    const currentSkills = form.getValues("skills");
-    form.setValue("skills", currentSkills.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter((_, i) => i !== index)
+    }));
   };
 
   const addExperience = () => {
-    const currentExperience = form.getValues("experience");
-    form.setValue("experience", [
-      ...currentExperience,
-      { title: "", company: "", startDate: "", endDate: "", description: "" }
-    ]);
+    setFormData(prev => ({
+      ...prev,
+      experience: [
+        ...prev.experience,
+        { title: "", company: "", startDate: "", endDate: "", description: "" }
+      ]
+    }));
   };
 
   const removeExperience = (index: number) => {
-    const currentExperience = form.getValues("experience");
-    form.setValue("experience", currentExperience.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      experience: prev.experience.filter((_, i) => i !== index)
+    }));
   };
 
   const addEducation = () => {
-    const currentEducation = form.getValues("education");
-    form.setValue("education", [
-      ...currentEducation,
-      { degree: "", institution: "", graduationYear: new Date().getFullYear(), gpa: "" }
-    ]);
+    setFormData(prev => ({
+      ...prev,
+      education: [
+        ...prev.education,
+        { degree: "", institution: "", graduationYear: new Date().getFullYear(), gpa: "" }
+      ]
+    }));
   };
 
   const removeEducation = (index: number) => {
-    const currentEducation = form.getValues("education");
-    form.setValue("education", currentEducation.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateExperience = (index: number, field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) =>
+        i === index ? { ...exp, [field]: value } : exp
+      )
+    }));
+  };
+
+  const updateEducation = (index: number, field: string, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.map((edu, i) =>
+        i === index ? { ...edu, [field]: value } : edu
+      )
+    }));
   };
 
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-            </div>
-            <div className="space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
         </div>
+        <p className="text-center text-gray-600 mt-4">Loading CV information...</p>
       </div>
     );
   }
 
   const isProcessing = cvFile?.status === "processing";
   const isCompleted = cvFile?.status === "completed";
+  const isFailed = cvFile?.status === "failed";
+
+  if (isProcessing) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="text-center">
+          <Clock className="w-16 h-16 mx-auto text-blue-600 mb-4 animate-pulse" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing Document</h3>
+          <p className="text-gray-600">Your CV is being analyzed. This may take a few moments...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFailed) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 mx-auto text-red-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing Failed</h3>
+          <p className="text-gray-600">Failed to process your CV. Please try uploading again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!extractedInfo) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Information Found</h3>
+          <p className="text-gray-600">Unable to extract information from this CV.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Analysis Results</h3>
-          <p className="text-gray-600">Extracted information from uploaded CV documents</p>
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 text-green-600" />
+          <h2 className="text-xl font-semibold text-gray-900">CV Analysis Results</h2>
         </div>
-        <div className="flex items-center space-x-2">
-          {isCompleted && (
-            <Badge variant="default" className="bg-green-50 text-green-600 border-green-200">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Analysis Complete
-            </Badge>
-          )}
-          {isProcessing && (
-            <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
-              Processing
-            </Badge>
-          )}
-        </div>
+        <Button
+          onClick={handleSubmit}
+          disabled={updateMutation.isPending}
+          className="flex items-center gap-2"
+        >
+          <Save className="w-4 h-4" />
+          {updateMutation.isPending ? "Saving..." : "Save Changes"}
+        </Button>
       </div>
 
-      {isProcessing && (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            <div>
-              <p className="font-medium text-blue-900">Analyzing CV content...</p>
-              <p className="text-sm text-blue-600">Extracting text and identifying key information</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Personal Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-base">
-                  <User className="h-5 w-5 text-primary mr-2" />
-                  Personal Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Personal Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Personal Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <Input
+                  value={formData.fullName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                  placeholder="Enter full name"
                 />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Professional Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-base">
-                  <Bus className="h-5 w-5 text-primary mr-2" />
-                  Professional Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="summary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Summary</FormLabel>
-                      <FormControl>
-                        <Textarea rows={6} className="resize-none" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <div>
-                  <FormLabel>Key Skills</FormLabel>
-                  <div className="flex flex-wrap gap-2 mt-2 mb-3">
-                    {form.watch("skills").map((skill, index) => (
-                      <Badge key={index} variant="secondary" className="bg-primary/10 text-primary">
-                        {skill}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2 h-auto p-0 text-primary/60 hover:text-primary"
-                          onClick={() => removeSkill(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={newSkill}
-                      onChange={(e) => setNewSkill(e.target.value)}
-                      placeholder="Add a skill"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                    />
-                    <Button type="button" variant="outline" onClick={addSkill}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Experience Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center text-base">
-                  <Briefcase className="h-5 w-5 text-primary mr-2" />
-                  Work Experience
-                </CardTitle>
-                <Button type="button" onClick={addExperience}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Experience
-                </Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {form.watch("experience").map((_, index) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name={`experience.${index}.title`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Job Title</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`experience.${index}.company`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`experience.${index}.startDate`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Start Date</FormLabel>
-                          <FormControl>
-                            <Input type="month" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`experience.${index}.endDate`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>End Date</FormLabel>
-                          <FormControl>
-                            <Input type="month" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <FormField
-                      control={form.control}
-                      name={`experience.${index}.description`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea rows={3} className="resize-none" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="mt-3 flex justify-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <Input
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter email"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <Input
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <Input
+                  value={formData.location}
+                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Enter location"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
+              <Textarea
+                value={formData.summary}
+                onChange={(e) => setFormData(prev => ({ ...prev, summary: e.target.value }))}
+                placeholder="Enter professional summary"
+                rows={4}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Skills */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              Skills
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                placeholder="Add a skill"
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+              />
+              <Button type="button" onClick={addSkill} variant="outline">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {formData.skills.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                  {skill}
+                  <X
+                    className="w-3 h-3 cursor-pointer hover:text-red-600"
+                    onClick={() => removeSkill(index)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Experience */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              Experience
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {formData.experience.map((exp, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-medium text-gray-900">Experience {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeExperience(index)}
-                      className="text-red-500 hover:text-red-700"
                     >
-                      <X className="h-4 w-4 mr-1" />
-                      Remove
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Education Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center text-base">
-                  <GraduationCap className="h-5 w-5 text-primary mr-2" />
-                  Education
-                </CardTitle>
-                <Button type="button" onClick={addEducation}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Education
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {form.watch("education").map((_, index) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name={`education.${index}.degree`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Degree</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Job title"
+                      value={exp.title}
+                      onChange={(e) => updateExperience(index, 'title', e.target.value)}
                     />
-                    <FormField
-                      control={form.control}
-                      name={`education.${index}.institution`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Institution</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
+                    <Input
+                      placeholder="Company"
+                      value={exp.company}
+                      onChange={(e) => updateExperience(index, 'company', e.target.value)}
                     />
-                    <FormField
-                      control={form.control}
-                      name={`education.${index}.graduationYear`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Graduation Year</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              {...field} 
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
+                    <Input
+                      placeholder="Start date"
+                      value={exp.startDate}
+                      onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
                     />
-                    <FormField
-                      control={form.control}
-                      name={`education.${index}.gpa`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>GPA (Optional)</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
+                    <Input
+                      placeholder="End date"
+                      value={exp.endDate}
+                      onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
                     />
                   </div>
-                  <div className="mt-3 flex justify-end">
+                  <Textarea
+                    placeholder="Job description"
+                    value={exp.description}
+                    onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              ))}
+              <Button type="button" onClick={addExperience} variant="outline" className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Experience
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Education */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5" />
+              Education
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {formData.education.map((edu, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-medium text-gray-900">Education {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeEducation(index)}
-                      className="text-red-500 hover:text-red-700"
                     >
-                      <X className="h-4 w-4 mr-1" />
-                      Remove
+                      <X className="w-4 h-4" />
                     </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Input
+                      placeholder="Degree"
+                      value={edu.degree}
+                      onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                    />
+                    <Input
+                      placeholder="Institution"
+                      value={edu.institution}
+                      onChange={(e) => updateEducation(index, 'institution', e.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Graduation year"
+                      value={edu.graduationYear}
+                      onChange={(e) => updateEducation(index, 'graduationYear', parseInt(e.target.value))}
+                    />
+                    <Input
+                      placeholder="GPA (optional)"
+                      value={edu.gpa || ""}
+                      onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
+                    />
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-
-          {/* Action Buttons */}
-          <div className="flex justify-between items-center pt-6 border-t">
-            <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-500">
-                <Save className="h-4 w-4 mr-1 inline" />
-                Auto-saved at {new Date().toLocaleTimeString()}
-              </span>
-            </div>
-            <div className="flex space-x-3">
-              <Button variant="outline" type="button">
-                <Download className="h-4 w-4 mr-2" />
-                Export JSON
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                <Database className="h-4 w-4 mr-2" />
-                {updateMutation.isPending ? "Saving..." : "Save to Database"}
+              <Button type="button" onClick={addEducation} variant="outline" className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Education
               </Button>
             </div>
-          </div>
-        </form>
-      </Form>
+          </CardContent>
+        </Card>
+      </form>
     </div>
   );
 }

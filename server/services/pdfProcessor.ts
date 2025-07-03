@@ -80,14 +80,18 @@ function extractStructuredInfo(text: string) {
 
 export async function processDocument(filePath: string, cvFileId: number, mimeType: string) {
   try {
+    console.log(`Starting document processing for CV ${cvFileId}, file: ${filePath}, type: ${mimeType}`);
+    
     // Update status to processing
     await storage.updateCvFileStatus(cvFileId, 'processing');
     
     // Extract text from document
     const extractedText = await extractTextFromDocument(filePath, mimeType);
+    console.log(`Extracted text length: ${extractedText.length} characters`);
     
     // Extract structured information
     const structuredInfo = extractStructuredInfo(extractedText);
+    console.log(`Structured info extracted:`, structuredInfo);
     
     // Save extracted information to database
     await storage.createExtractedInfo({
@@ -97,6 +101,7 @@ export async function processDocument(filePath: string, cvFileId: number, mimeTy
     
     // Update status to completed
     await storage.updateCvFileStatus(cvFileId, 'completed');
+    console.log(`Document processing completed for CV ${cvFileId}`);
     
     // Clean up uploaded file
     fs.unlinkSync(filePath);
